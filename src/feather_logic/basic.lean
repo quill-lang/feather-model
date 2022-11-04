@@ -1,4 +1,4 @@
-import data.finset.basic
+import data.finpfun
 
 /-!
 # Feather logic
@@ -21,21 +21,17 @@ A runtime typing context.
 * `Ξ` is the affine knowledge context, which is a set that contains information about elements
   of the affine typing context, in a copyable way.
 -/
-structure runtime_context (E : Type u) :=
-(Γ : finset (E × E))
-(Θ : multiset (E × E))
-(Ξ : finset (E × E))
+structure runtime_context (E : Type (u + 1)) (V : Type u) :=
+(Γ : finset (V × E))
+(Θ : multiset (V × E))
+(Ξ : finset (V × E))
 
-instance {E : Type u} [decidable_eq E] : has_add (runtime_context E) :=
+instance {E : Type (u + 1)} {V : Type u} [decidable_eq E] [decidable_eq V] : has_add (runtime_context E V) :=
 ⟨λ C D, ⟨C.Γ ∪ D.Γ, C.Θ + D.Θ, C.Ξ ∪ D.Ξ⟩⟩
 
-/-- Note that we can't implement `functor` constructively because we need `decidable_eq E`. -/
-def runtime_context.map {E : Type u} [decidable_eq E] (f : E → E) (C : runtime_context E) :
-  runtime_context E := ⟨C.Γ.image (prod.map f f), C.Θ.map (prod.map f f), C.Ξ.image (prod.map f f)⟩
-
 /-- The judgment `Γ | Θ | Ξ ⊢ e : type`. -/
-structure runtime_judgment (E : Type u) :=
-(ctx : runtime_context E)
+structure runtime_judgment (E : Type (u + 1)) (V : Type u) :=
+(ctx : runtime_context E V)
 (e : E)
 (type : E)
 
@@ -47,46 +43,38 @@ A runtime-irrelevant typing context.
 * `Ξ` is the affine knowledge context, which is a set that contains information about elements
   of the affine typing context of a runtime context, in a copyable way.
 -/
-structure rir_context (E : Type u) :=
-(Γ : finset (E × E))
-(Ξ : finset (E × E))
+structure rir_context (E : Type (u + 1)) (V : Type u) :=
+(Γ : finset (V × E))
+(Ξ : finset (V × E))
 
-instance {E : Type u} [decidable_eq E] : has_union (rir_context E) :=
+instance {E : Type (u + 1)} {V : Type u} [decidable_eq E] [decidable_eq V] : has_union (rir_context E V) :=
 ⟨λ C D, ⟨C.Γ ∪ D.Γ, C.Ξ ∪ D.Ξ⟩⟩
 
-/-- Note that we can't implement `functor` constructively because we need `decidable_eq E`. -/
-def rir_context.map {E : Type u} [decidable_eq E] (f : E → E) (C : rir_context E) :
-  rir_context E := ⟨C.Γ.image (prod.map f f), C.Ξ.image (prod.map f f)⟩
-
 /-- A typing context that contains no information about resource ownership. -/
-structure plain_context (E : Type u) :=
-(Γ : finset (E × E))
+structure plain_context (E : Type (u + 1)) (V : Type u) :=
+(Γ : finset (V × E))
 
-instance {E : Type u} [decidable_eq E] : has_union (plain_context E) :=
+instance {E : Type (u + 1)} {V : Type u} [decidable_eq E] [decidable_eq V] : has_union (plain_context E V) :=
 ⟨λ C D, ⟨C.Γ ∪ D.Γ⟩⟩
 
-/-- Note that we can't implement `functor` constructively because we need `decidable_eq E`. -/
-def plain_context.map {E : Type u} [decidable_eq E] (f : E → E) (C : plain_context E) :
-  plain_context E := ⟨C.Γ.image (prod.map f f)⟩
-
 /-- Returns the runtime-irrelevant portion of a runtime context. -/
-def runtime_context.rir {E : Type u} (C : runtime_context E) : rir_context E := ⟨C.Γ, C.Ξ⟩
+def runtime_context.rir {E : Type (u + 1)} {V : Type u} (C : runtime_context E V) : rir_context E V := ⟨C.Γ, C.Ξ⟩
 
 /-- Returns the intuitionistic portion of a runtime context. -/
-def runtime_context.plain {E : Type u} [decidable_eq E] (C : runtime_context E) : plain_context E :=
+def runtime_context.plain {E : Type (u + 1)} {V : Type u} (C : runtime_context E V) : plain_context E V :=
 ⟨C.Γ⟩
 
 /-- Returns the intuitionistic portion of a runtime-irrelevant context. -/
-def rir_context.plain {E : Type u} [decidable_eq E] (C : rir_context E) : plain_context E :=
+def rir_context.plain {E : Type (u + 1)} {V : Type u} (C : rir_context E V) : plain_context E V :=
 ⟨C.Γ⟩
 
 /-- Collapses a runtime-irrelevant context's knowledge context into the intuitionistic context. -/
-def rir_context.collapse {E : Type u} [decidable_eq E] (C : rir_context E) : rir_context E :=
+def rir_context.collapse {E : Type (u + 1)} {V : Type u} [decidable_eq E] [decidable_eq V] (C : rir_context E V) : rir_context E V :=
 ⟨C.Γ ∪ C.Ξ, ∅⟩
 
 /-- The runtime-irrelevant judgment `Γ | Ξ ⊢ e : type`. -/
-structure rir_judgment (E : Type u) :=
-(ctx : rir_context E)
+structure rir_judgment (E : Type (u + 1)) (V : Type u) :=
+(ctx : rir_context E V)
 (e : E)
 (type : E)
 
@@ -121,22 +109,22 @@ proposition that `x` and `y` are definitionally equivalent and have type `α`.
 `representable` gives a term that encodes the representability of a particular term,
 considered as a type of feather terms, given a context of variables to bind.
 -/
-class term_struct (E : Type u) :=
+class term_struct (E : Type (u + 1)) :=
 (V : Type u)
 (var : V → E)
 (bound : E → finset V)
 (subst : V → E → E → E)
-(runtime_judgments : runtime_judgment E → Prop)
-(rir_judgments : rir_judgment E → Prop)
-(defeq : plain_context E → E → E → E → Prop)
+(runtime_judgments : runtime_judgment E V → Prop)
+(rir_judgments : rir_judgment E V → Prop)
+(defeq : plain_context E V → E → E → E → Prop)
 (sort : sort_name → E)
 (representable : finset (V × E) → E → E)
 
 export term_struct (V var bound subst sort representable)
 
-def type {E : Type u} [term_struct E] (u : ℕ) : E := sort (sort_name.type u)
-def prop {E : Type u} [term_struct E] : E := sort sort_name.prop
-def region {E : Type u} [term_struct E] : E := sort sort_name.region
+def type {E : Type (u + 1)} [term_struct E] (u : ℕ) : E := sort (sort_name.type u)
+def prop {E : Type (u + 1)} [term_struct E] : E := sort sort_name.prop
+def region {E : Type (u + 1)} [term_struct E] : E := sort sort_name.region
 
 /-! We define notation for these common types of judgment. -/
 
@@ -145,8 +133,29 @@ notation C ` ⊢ `:26 x:26 ` : `:26 α:26 := term_struct.rir_judgments (rir_judg
 notation C ` ⊢ `:26 x:26 ` ≡ `:26 y:26 ` : `:26 α:26 := term_struct.defeq C x y α
 
 -- A convenient instance to use instead of explicitly calling `bound` all the time.
-instance term_has_mem (E : Type u) [term_struct E] : has_mem (V E) E :=
+instance term_has_mem (E : Type (u + 1)) [term_struct E] : has_mem (V E) E :=
 ⟨λ v e, v ∈ (bound e : finset (V E))⟩
+
+/-- Substitutes the term `e` for the variable `v`. If the context contains an assumption `v : α`,
+it is removed. -/
+def runtime_context.subst {E : Type (u + 1)} [term_struct E] [decidable_eq E] [decidable_eq (V E)]
+  (v : V E) (e : E) (C : runtime_context E (V E)) : runtime_context E (V E) :=
+⟨(C.Γ.filter (λ x : V E × E, x.1 = v)).image (prod.map id (subst v e)),
+ (C.Θ.filter (λ x : V E × E, x.1 = v)).map (prod.map id (subst v e)),
+ (C.Ξ.filter (λ x : V E × E, x.1 = v)).image (prod.map id (subst v e))⟩
+
+/-- Substitutes the term `e` for the variable `v`. If the context contains an assumption `v : α`,
+it is removed. -/
+def rir_context.subst {E : Type (u + 1)} [term_struct E] [decidable_eq E] [decidable_eq (V E)]
+  (v : V E) (e : E) (C : rir_context E (V E)) : rir_context E (V E) :=
+⟨(C.Γ.filter (λ x : V E × E, x.1 = v)).image (prod.map id (subst v e)),
+ (C.Ξ.filter (λ x : V E × E, x.1 = v)).image (prod.map id (subst v e))⟩
+
+/-- Substitutes the term `e` for the variable `v`. If the context contains an assumption `v : α`,
+it is removed. -/
+def plain_context.subst {E : Type (u + 1)} [term_struct E] [decidable_eq E] [decidable_eq (V E)]
+  (v : V E) (e : E) (C : plain_context E (V E)) : plain_context E (V E) :=
+⟨(C.Γ.filter (λ x : V E × E, x.1 = v)).image (prod.map id (subst v e))⟩
 
 /--
 A type of feather terms that is lawful. Many of these laws are inspired by the
@@ -171,47 +180,47 @@ substitution, sorts, knowledge rules, variable instantiation, and representabili
 * Runtime-irrelevant judgments that are representable can be made runtime-relevant.
 * The bound variables for created terms behave in the obvious ways under substitution.
 -/
-class term (E : Type u) [decidable_eq E] [term_struct E] [decidable_eq (V E)] :=
-(defeq_reflexive {C : rir_context E} {x α : E} : C ⊢ x : α → C.plain ⊢ x ≡ x : α)
-(defeq_symmetric {C : plain_context E} {x y α : E} : C ⊢ x ≡ y : α → C ⊢ y ≡ x : α)
-(defeq_transitive {C : plain_context E} {x y z α : E} :
+class term (E : Type (u + 1)) [decidable_eq E] [term_struct E] [decidable_eq (V E)] :=
+(defeq_reflexive {C : rir_context E (V E)} {x α : E} : C ⊢ x : α → C.plain ⊢ x ≡ x : α)
+(defeq_symmetric {C : plain_context E (V E)} {x y α : E} : C ⊢ x ≡ y : α → C ⊢ y ≡ x : α)
+(defeq_transitive {C : plain_context E (V E)} {x y z α : E} :
   C ⊢ x ≡ y : α → C ⊢ y ≡ z : α → C ⊢ x ≡ z : α)
-(runtime_congr {C : runtime_context E} {x α β γ : E} :
+(runtime_congr {C : runtime_context E (V E)} {x α β γ : E} :
   C ⊢ᵣ x : α → C.plain ⊢ α ≡ β : γ → C ⊢ᵣ x : β)
-(rir_congr {C : rir_context E} {x α β γ : E} :
+(rir_congr {C : rir_context E (V E)} {x α β γ : E} :
   C ⊢ x : α → C.plain ⊢ α ≡ β : γ → C ⊢ x : β)
-(defeq_congr {C : plain_context E} {x y α β γ : E} :
+(defeq_congr {C : plain_context E (V E)} {x y α β γ : E} :
   C ⊢ x ≡ y : α → C ⊢ α ≡ β : γ → C ⊢ x ≡ y : β)
-(representable_congr {C : plain_context E} {α β γ : E} {K : finset (V E × E)} :
+(representable_congr {C : plain_context E (V E)} {α β γ : E} {K : finset (V E × E)} :
   C ⊢ α ≡ β : γ → C ⊢ representable K α ≡ representable K β : prop)
-(representable_congr_type {C : plain_context E} {v : V E} {α β γ δ : E} {K : finset (V E × E)} :
+(representable_congr_type {C : plain_context E (V E)} {v : V E} {α β γ δ : E} {K : finset (V E × E)} :
   C ⊢ α ≡ β : γ → C ⊢ representable (K ∪ {(v, α)}) δ ≡ representable (K ∪ {(v, β)}) δ : prop)
-(representable_alpha {C : plain_context E} {v w : V E} {α β : E} {K : finset (V E × E)} :
+(representable_alpha {C : plain_context E(V E)} {v w : V E} {α β : E} {K : finset (V E × E)} :
   C ⊢ representable (K ∪ {(v, α)}) β ≡ representable (K ∪ {(w, α)}) (subst v (var w) β) : prop)
-(subst_runtime {C D : runtime_context E} {v : V E} {x y α β : E} :
-  C ⊢ᵣ x : α → ⟨C.Γ, ∅, C.Ξ⟩ + D + ⟨∅, {(var v, α)}, ∅⟩ ⊢ᵣ y : β →
-  C + D.map (subst v x) ⊢ᵣ subst v x y : subst v x β)
-(subst_rir {C D : rir_context E} {v : V E} {x y α β : E} :
-  C ⊢ x : α → C ∪ D ∪ ⟨{(var v, α)}, ∅⟩ ⊢ y : β →
-  C ∪ D.map (subst v x) ⊢ subst v x y : subst v x β)
-(subst_defeq {C : rir_context E} {D : plain_context E} {v : V E} {x y z α β : E} :
-  C ⊢ x : α → C.plain ∪ D ∪ ⟨{(var v, α)}⟩ ⊢ y ≡ z : β →
-  C.plain ∪ D.map (subst v x) ⊢ subst v x y ≡ subst v x z : subst v x β)
-(subst_congr {C D : rir_context E} {v : V E} {x y z α β : E} :
-  C.plain ⊢ x ≡ y : α → C ∪ D ∪ ⟨{(var v, α)}, ∅⟩ ⊢ z : β →
-  C.plain ∪ D.plain.map (subst v x) ⊢ subst v x z ≡ subst v y z : subst v x β)
-(runtime_judgments_weak {C D : runtime_context E} {x α : E} : C ⊢ᵣ x : α → C + D ⊢ᵣ x : α)
-(rir_judgments_weak {C D : rir_context E} {x α : E} : C ⊢ x : α → C ∪ D ⊢ x : α)
-(defeq_weak {C D : plain_context E} {x y α : E} : C ⊢ x ≡ y : α → C ∪ D ⊢ x ≡ y : α)
-(Ξ_elim {C : runtime_context E} {Θ' : multiset (E × E)} {x α : E} :
+(subst_runtime {C D : runtime_context E (V E)} {v : V E} {x y α β : E} :
+  C ⊢ᵣ x : α → ⟨C.Γ, ∅, C.Ξ⟩ + D + ⟨∅, {(v, α)}, ∅⟩ ⊢ᵣ y : β →
+  C + D.subst v x ⊢ᵣ subst v x y : subst v x β)
+(subst_rir {C D : rir_context E (V E)} {v : V E} {x y α β : E} :
+  C ⊢ x : α → C ∪ D ∪ ⟨{(v, α)}, ∅⟩ ⊢ y : β →
+  C ∪ D.subst v x ⊢ subst v x y : subst v x β)
+(subst_defeq {C : rir_context E (V E)} {D : plain_context E (V E)} {v : V E} {x y z α β : E} :
+  C ⊢ x : α → C.plain ∪ D ∪ ⟨{(v, α)}⟩ ⊢ y ≡ z : β →
+  C.plain ∪ D.subst v x ⊢ subst v x y ≡ subst v x z : subst v x β)
+(subst_congr {C D : rir_context E (V E)} {v : V E} {x y z α β : E} :
+  C.plain ⊢ x ≡ y : α → C ∪ D ∪ ⟨{(v, α)}, ∅⟩ ⊢ z : β →
+  C.plain ∪ D.plain.subst v x ⊢ subst v x z ≡ subst v y z : subst v x β)
+(runtime_judgments_weak {C D : runtime_context E (V E)} {x α : E} : C ⊢ᵣ x : α → C + D ⊢ᵣ x : α)
+(rir_judgments_weak {C D : rir_context E (V E)} {x α : E} : C ⊢ x : α → C ∪ D ⊢ x : α)
+(defeq_weak {C D : plain_context E (V E)} {x y α : E} : C ⊢ x ≡ y : α → C ∪ D ⊢ x ≡ y : α)
+(Ξ_elim {C : runtime_context E (V E)} {Θ' : multiset (V E × E)} {x α : E} :
   C + ⟨∅, Θ', Θ'.to_finset⟩ ⊢ᵣ x : α → C + ⟨∅, Θ', ∅⟩ ⊢ᵣ x : α)
-(Γ_var {C : rir_context E} {x α : E} : (x, α) ∈ C.Γ → C ⊢ x : α)
-(Θ_var {C : runtime_context E} {x α : E} : (x, α) ∈ C.Θ → C ⊢ᵣ x : α)
-(type_type {C : rir_context E} {u : ℕ} : C ⊢ type u : type (u + 1))
-(prop_type {C : rir_context E} : C ⊢ prop : type 0)
-(region_type {C : rir_context E} : C ⊢ region : type 0)
-(to_runtime {C : rir_context E} {x α h : E} :
-  C ⊢ x : α → C ⊢ h : representable ∅ α → ⟨C.Γ, ∅, C.Ξ⟩ ⊢ᵣ x : α)
+(Γ_var {C : rir_context E (V E)} {v : V E} {α : E} : (v, α) ∈ C.Γ → C ⊢ var v : α)
+(Θ_var {C : runtime_context E (V E)} {v : V E} {α : E} : (v, α) ∈ C.Θ → C ⊢ᵣ var v : α)
+(type_type {C : rir_context E (V E)} {u : ℕ} : C ⊢ type u : type (u + 1))
+(prop_type {C : rir_context E (V E)} : C ⊢ prop : type 0)
+(region_type {C : rir_context E (V E)} : C ⊢ region : type 0)
+(to_runtime {C : rir_context E (V E)} {x α h : E} :
+  C ⊢ x : α → C ⊢ h : representable ⊥ α → ⟨C.Γ, ∅, C.Ξ⟩ ⊢ᵣ x : α)
 (bound_var (v : V E) : (bound (var v : E) : finset (V E)) = {v})
 (bound_sort {s : sort_name} : (bound (sort s) : finset (V E)) = ∅)
 (bound_representable {α : E} {K : finset (V E × E)} :
